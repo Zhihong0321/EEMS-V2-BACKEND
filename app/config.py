@@ -1,6 +1,4 @@
 from functools import lru_cache
-from typing import Optional
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,8 +9,6 @@ class Settings(BaseSettings):
         description="SQLAlchemy database URL. Defaults to local SQLite for development.",
     )
     backend_api_key: str = Field(default="dev-secret-key")
-    whatsapp_api_base: Optional[str] = Field(default=None)
-    whatsapp_api_token: Optional[str] = Field(default=None)
     log_level: str = Field(default="info")
     timezone: str = Field(default="Asia/Kuala_Lumpur")
     sse_heartbeat_seconds: int = Field(default=15, ge=5)

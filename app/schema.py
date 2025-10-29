@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field, conint, confloat
 class SimulatorCreate(BaseModel):
     name: str
     target_kwh: confloat(ge=0)
-    whatsapp_msisdn: Optional[str] = None
 
 
 class SimulatorOut(SimulatorCreate):

@@ -5,7 +5,6 @@ create table if not exists simulators (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   target_kwh numeric(12,4) not null check (target_kwh >= 0),
-  whatsapp_msisdn text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -34,14 +33,3 @@ create table if not exists blocks_30m (
 );
 create index if not exists idx_blocks_sim_start on blocks_30m (simulator_id, block_start_utc);
 
-create table if not exists alerts (
-  id bigserial primary key,
-  simulator_id uuid not null references simulators(id),
-  block_start_utc timestamptz not null,
-  threshold text not null,
-  destination text not null,
-  status text not null,
-  sent_at timestamptz not null default now(),
-  response_code int,
-  response_body text
-);

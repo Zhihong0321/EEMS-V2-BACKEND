@@ -23,8 +23,7 @@ Core Purpose.
 2. fixed 30mins block start from 12.00am
 3. each block, user can set a Kwh PEAK Target.
 4. based on the energy reading, calculate current 30min block accumulated usage (kwh)
-5. send alert via whatsapp to user if reach 80% from target.
-6. refer whatsapp API server document here : https://whatsapp-api-server-production-c15f.up.railway.app/api/docs
+5. when usage reaches 80% of the target for the active block, emit an alert-ready signal so the UI can decide how to notify the user (WhatsApp, email, etc.).
 
 #######
 
@@ -39,7 +38,7 @@ Manual Usage Mode
 5. in this mode, every second reading = 15second in real life, so the reading data are generate, the time should be fast forward 15x.
 
 Let user set the following in Simulator:
-- Simulator Name, Simulator Meter Target Peak, Simulator Whatsapp Alert number.
+- Simulator Name, Simulator Meter Target Peak.
 - in DB, we should create new Simulator profile based on above data
 - when user open the simulator meter page, it should prompt user the existing Simulator Profile to select, and continue to simulate
 - OR, user can create a new simulator. and run meter simulation

@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 from ..config import get_settings
 from ..models import Block30m, Reading, Simulator
 from ..schema import TickIn
-from .alerts import send_80pct_alert
 from .sse import sse_manager
 
 
@@ -118,13 +117,25 @@ async def ingest_ticks(simulator_id: UUID, ticks: Iterable[TickIn], session: Ses
         if not block.alerted_80pct and target_decimal > 0 and percent >= 80:
             block.alerted_80pct = True
             session.flush()
-            await send_80pct_alert(simulator, block, percent, session)
+
+            block_start_local = block.block_start_local.astimezone(tz)
+            block_end_local = block.block_end_utc.astimezone(tz)
+            timezone_label = "local KL" if settings.timezone == "Asia/Kuala_Lumpur" else f"local {settings.timezone}"
+            block_window_label = f"{block_start_local.strftime('%H:%M')}–{block_end_local.strftime('%H:%M')} ({timezone_label})"
+            percent_of_target = float((Decimal(block.accumulated_kwh) / target_decimal) * Decimal(100))
+            percent_of_target = round(percent_of_target, 2)
+
             await sse_manager.publish(
                 simulator.id,
-                "alert-80pct",
+                "alert-ready",
                 {
-                    "message": f"Reached 80% of {float(block.target_kwh)} kWh",
-                    "percent_of_target": percent,
+                    "type": "alert-ready",
+                    "simulator_id": str(simulator.id),
+                    "block_start_utc": block.block_start_utc.isoformat(),
+                    "block_window_label": block_window_label,
+                    "target_kwh": float(block.target_kwh),
+                    "accumulated_kwh": float(block.accumulated_kwh),
+                    "percent_of_target": percent_of_target,
                 },
             )
 

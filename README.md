@@ -15,7 +15,7 @@ Got it. Here’s a tight, Codex-optimized backend spec you can drop straight int
 ## 0) Purpose (What & Why)
 
 **What:**
-A minimal backend that ingests simulated energy readings, aggregates them into fixed 30-minute blocks (starting 00:00 daily, KL time), exposes read APIs for the dashboard, emits live updates (SSE), and sends a WhatsApp alert when the current block reaches **≥80%** of the target kWh.
+A minimal backend that ingests simulated energy readings, aggregates them into fixed 30-minute blocks (starting 00:00 daily, KL time), exposes read APIs for the dashboard, and emits live updates (SSE). When the current block reaches **≥80%** of the target kWh the backend marks the block as "alert-ready" and streams that fact so the frontend can decide how to notify users.
 
 **Why:**
 
@@ -31,7 +31,7 @@ A minimal backend that ingests simulated energy readings, aggregates them into f
 
 * REST ingestion endpoint for simulator
 * 30-min block computation + accumulation
-* 80% threshold alert (WhatsApp API server)
+* 80% threshold detection + SSE "alert-ready" event (frontend handles messaging)
 * Read APIs for latest block & recent block history
 * SSE endpoint for live UI updates
 * API key auth (simple)
@@ -52,7 +52,7 @@ A minimal backend that ingests simulated energy readings, aggregates them into f
 ```
 Simulator (Frontend) --REST--> Backend /readings:ingest --> Postgres
                                                   |--> 30-min block upsert & accumulate
-                                                  |--> Alert @ 80% via WhatsApp API server
+                                                  |--> 80% threshold flip → mark alert-ready
                                                   |--> SSE push to /stream/:sim_id
 
 Dashboard (Frontend) <--REST/SSE-- Backend <---> Postgres
@@ -74,9 +74,6 @@ Required env vars:
 * `DATABASE_URL` — PostgreSQL URL (from Railway)
 * `BACKEND_API_KEY` — static API key for write endpoints
 * `TZ=Asia/Kuala_Lumpur` — ensure process timezone (and be explicit in code)
-* `WHATSAPP_API_BASE` — e.g. `https://whatsapp-api-server.../api`
-* `WHATSAPP_API_TOKEN` — bearer or key as required by your server
-
 Optional env vars:
 
 * `PORT` (Railway provides)
@@ -92,12 +89,10 @@ Optional env vars:
 create extension if not exists pgcrypto; -- for gen_random_uuid()
 create extension if not exists uuid-ossp;
 
--- Simulators / “meters” configuration (prototype)
 create table if not exists simulators (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   target_kwh numeric(12,4) not null check (target_kwh >= 0),
-  whatsapp_msisdn text,            -- E.164 format (e.g., +60123456789)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -128,18 +123,6 @@ create table if not exists blocks_30m (
 );
 create index if not exists idx_blocks_sim_start on blocks_30m (simulator_id, block_start_utc);
 
--- Alert audit log
-create table if not exists alerts (
-  id bigserial primary key,
-  simulator_id uuid not null references simulators(id),
-  block_start_utc timestamptz not null,
-  threshold text not null,           -- e.g., '80pct'
-  destination text not null,         -- msisdn
-  status text not null,              -- 'sent' | 'failed'
-  sent_at timestamptz not null default now(),
-  response_code int,
-  response_body text
-);
 ```
 
 ---
@@ -168,8 +151,7 @@ All **write** calls require header:
 ```json
 {
   "name": "Factory A",
-  "target_kwh": 120.0,
-  "whatsapp_msisdn": "+60123456789"
+  "target_kwh": 120.0
 }
 ```
 
@@ -180,7 +162,6 @@ All **write** calls require header:
   "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
   "name": "Factory A",
   "target_kwh": 120.0,
-  "whatsapp_msisdn": "+60123456789",
   "created_at": "2025-10-29T06:00:00Z",
   "updated_at": "2025-10-29T06:00:00Z"
 }
@@ -276,7 +257,15 @@ All **write** calls require header:
 ```json
 { "type": "reading", "ts": "2025-10-29T06:00:30Z" }
 { "type": "block-update", "accumulated_kwh": 96.5, "percent_of_target": 80.4 }
-{ "type": "alert-80pct", "message": "Reached 80% of 120.0 kWh" }
+{
+  "type": "alert-ready",
+  "simulator_id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+  "block_start_utc": "2025-10-29T06:00:00Z",
+  "block_window_label": "14:00–14:30 (local KL)",
+  "target_kwh": 120.0,
+  "accumulated_kwh": 96.5,
+  "percent_of_target": 80.42
+}
 ```
 
 ---
@@ -310,12 +299,22 @@ All **write** calls require header:
 
   * If `accumulated_kwh >= 0.8 * target_kwh` **AND** `alerted_80pct=false`:
 
-    * Send WhatsApp via API server (see §7)
     * Set `alerted_80pct=true`
-    * Insert `alerts` audit row
-    * Emit SSE `alert-80pct`
+    * Emit SSE `alert-ready` with payload:
 
-> Alert fires **at most once per block per simulator**.
+      ```json
+      {
+        "type": "alert-ready",
+        "simulator_id": "<UUID>",
+        "block_start_utc": "<ISO8601>",
+        "block_window_label": "HH:MM–HH:MM (local KL)",
+        "target_kwh": <float>,
+        "accumulated_kwh": <float>,
+        "percent_of_target": <float>
+      }
+      ```
+
+> Alert-ready emits **at most once per block per simulator**. The frontend decides how to notify users (WhatsApp, SMS, etc.).
 
 ### 6.4 Idempotency (simple)
 
@@ -324,25 +323,11 @@ All **write** calls require header:
 
 ---
 
-## 7) WhatsApp API Server Integration
+## 7) Alert-ready (No Server-Side Messaging)
 
-**HTTP call** (example—adjust to your server’s Swagger):
-
-`POST ${WHATSAPP_API_BASE}/messages`
-Headers: `Authorization: Bearer ${WHATSAPP_API_TOKEN}`, `Content-Type: application/json`
-Body (example):
-
-```json
-{
-  "to": "+60123456789",
-  "type": "text",
-  "text": {
-    "body": "[Eternalgy EMS]\nSimulator: Factory A\nWindow: 14:00–14:30\nTarget: 120.0 kWh\nCurrent: 96.5 kWh (80.4%)\nStatus: Reached 80% threshold."
-  }
-}
-```
-
-**On response**: record status code + body in `alerts`.
+* Backend responsibility stops at marking the block as `alerted_80pct` and emitting the SSE `alert-ready` event.
+* Frontend (or any downstream consumer) is responsible for deciding whether to send WhatsApp, email, push, etc.
+* No messaging credentials are loaded on the backend; deployment environments do not need WhatsApp config.
 
 ---
 
@@ -356,7 +341,7 @@ Endpoint: `GET /api/v1/stream/:simulator_id`
 
   * successful ingest (type `reading`)
   * block accumulation change (type `block-update`)
-  * 80% alert (type `alert-80pct`)
+  * 80% threshold flip (type `alert-ready`)
 
 Server snippet (pseudo):
 
@@ -372,7 +357,6 @@ async def sse_stream(sim_id):
 
 * Write endpoints require `x-api-key` == `BACKEND_API_KEY`.
 * Validate: `power_kw >= 0`, `sample_seconds > 0`, `simulator_id` exists.
-* Sanitize `whatsapp_msisdn` to E.164 (basic check).
 * Rate-limit (optional, not required for prototype).
 
 ---
@@ -397,7 +381,6 @@ app/
   logic/
     ingest.py         # ingestion adapter (used by REST; future MQTT)
     blocks.py         # block math, binning
-    alerts.py         # whatsapp client
     sse.py            # broadcaster per simulator
   routers/
     simulators.py
@@ -425,7 +408,6 @@ from uuid import UUID
 class SimulatorCreate(BaseModel):
     name: str
     target_kwh: confloat(ge=0)
-    whatsapp_msisdn: Optional[str] = None
 
 class SimulatorOut(SimulatorCreate):
     id: UUID
@@ -473,7 +455,7 @@ async def ingest_ticks(sim_id: UUID, ticks: list[TickIn], session) -> int:
       2) write readings row
       3) map to KL 30-min block; upsert blocks_30m
       4) add energy_kwh to accumulated_kwh
-      5) if >= 80% and not alerted: send WhatsApp, mark alerted, write alerts
+      5) if >= 80% and not alerted: mark alerted, emit alert-ready SSE payload
       6) push SSE ('reading' and 'block-update')
     Return: count of accepted ticks.
     """
@@ -531,7 +513,7 @@ python-dateutil==2.*
 **Railway notes:**
 
 * Service type: Docker
-* Vars: `DATABASE_URL`, `BACKEND_API_KEY`, `WHATSAPP_API_BASE`, `WHATSAPP_API_TOKEN`, `TZ`
+* Vars: `DATABASE_URL`, `BACKEND_API_KEY`, `TZ`
 * One-time migration: `psql $DATABASE_URL -f db/init.sql`
 
 ---
@@ -550,7 +532,7 @@ Ensure schemas reflect DTOs above for Codex to infer.
 * [ ] 30-min block math correct for `Asia/Kuala_Lumpur` across day boundaries.
 * [ ] `GET /blocks/latest` returns current window with 60 cumulative points.
 * [ ] `GET /blocks/history?limit=10` returns last N windows with % of target.
-* [ ] WhatsApp alert fires **once** at ≥80% and logs to `alerts`.
+* [ ] 80% threshold sets `alerted_80pct` once and emits SSE `alert-ready`.
 * [ ] `GET /stream/:simulator_id` emits live events; heartbeat every 15s.
 * [ ] API key enforced on write routes; healthcheck available.
 * [ ] Railway deploy succeeds with env vars set; `db/init.sql` applied.
@@ -578,7 +560,7 @@ Add a small service (or module) later:
 3. Implement DTOs and routers per contracts.
 4. Implement `logic/ingest.py` with the exact steps in §13.
 5. Implement SSE broadcaster with per-simulator async queues.
-6. Implement WhatsApp client using env base URL + token.
+6. Wire alert-ready SSE payload when block hits 80% (no outbound messaging).
 7. Add `/healthz`, enable `/docs`.
 8. Dockerize and deploy on Railway.
 9. Validate with sample simulator POSTs.

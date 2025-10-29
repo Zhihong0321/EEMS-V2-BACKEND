@@ -13,7 +13,6 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
-    Text,
     UniqueConstraint,
     func,
 )
@@ -30,7 +29,6 @@ class Simulator(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False)
     target_kwh: Mapped[float] = mapped_column(Numeric(12, 4), nullable=False)
-    whatsapp_msisdn: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -78,19 +76,3 @@ class Block30m(Base):
     __table_args__ = (
         UniqueConstraint("simulator_id", "block_start_utc", name="uq_blocks_sim_start"),
     )
-
-
-class Alert(Base):
-    __tablename__ = "alerts"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    simulator_id: Mapped[str] = mapped_column(ForeignKey("simulators.id"), nullable=False)
-    block_start_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    threshold: Mapped[str] = mapped_column(String, nullable=False)
-    destination: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    response_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    simulator: Mapped[Simulator] = relationship()
