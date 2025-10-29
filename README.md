@@ -17,16 +17,17 @@ The Eternalgy EMS backend ingests simulated energy readings, aggregates them int
    curl -X POST "$BASE_URL/api/v1/simulators" \
      -H "content-type: application/json" \
      -H "x-api-key: $BACKEND_API_KEY" \
-     -d '{
-       "name": "Factory A",
-       "targetKwh": 120,
-       "whatsappNumber": "+60123456789"
-     }'
+    -d '{
+      "name": "Factory A",
+      "targetKwh": 120,
+      "whatsappNumber": 60123456789
+    }'
    ```
 
    - The JSON body **must** be valid JSON (double quotes, numbers without quotes).
    - `targetKwh` is a number (e.g., `120` or `120.0`).
    - Leave out `whatsappNumber` or set it to `null` if you do not want to store one yet.
+   - The WhatsApp number must contain digits only (no `+` sign, spaces, or hyphens).
 
 3. **Expected 200 OK response**
 
@@ -35,7 +36,7 @@ The Eternalgy EMS backend ingests simulated energy readings, aggregates them int
      "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
      "name": "Factory A",
      "target_kwh": 120.0,
-     "whatsapp_number": "+60123456789",
+     "whatsapp_number": 60123456789,
      "created_at": "2024-05-02T06:00:00Z",
      "updated_at": "2024-05-02T06:00:00Z"
    }
@@ -47,7 +48,7 @@ The Eternalgy EMS backend ingests simulated energy readings, aggregates them int
 | ------------------- | --------- | --------- | ----------------------------------------------------- | ------------------ |
 | `name`              | string    | yes       | `name`, `simulator_name`, `simulatorName`             | `"Factory A"`      |
 | `target_kwh`        | number ≥0 | yes       | `target_kwh`, `targetKwh`, `target_kWh`, `targetKWhr` | `120.0`            |
-| `whatsapp_number`   | string    | no        | `whatsapp_number`, `whatsappNumber`, `whatsapp_no`, `whatsappNo` | `"+60123456789"` |
+| `whatsapp_number`   | integer   | no        | `whatsapp_number`, `whatsappNumber`, `whatsapp_no`, `whatsappNo` | `60123456789`     |
 
 > **Getting 422?** Double-check the JSON structure, header names, and that the API key header is present. Missing fields, spelling mistakes, or non-numeric strings (`"120 kWh"`) will trigger validation errors. The aliases above match what the backend accepts.
 
@@ -182,7 +183,7 @@ create table if not exists simulators (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   target_kwh numeric(12,4) not null check (target_kwh >= 0),
-  whatsapp_number text,
+  whatsapp_number bigint,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

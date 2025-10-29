@@ -4,7 +4,15 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, conint, confloat
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    conint,
+    confloat,
+    field_validator,
+)
 
 
 class SimulatorCreate(BaseModel):
@@ -27,17 +35,33 @@ class SimulatorCreate(BaseModel):
         ),
         description="Target energy consumption in kWh for the 30-minute window.",
     )
-    whatsapp_number: Optional[str] = Field(
+    whatsapp_number: Optional[conint(gt=0)] = Field(
         default=None,
-        example="+60123456789",
+        example=60123456789,
         validation_alias=AliasChoices(
             "whatsapp_number",
             "whatsappNumber",
             "whatsapp_no",
             "whatsappNo",
         ),
-        description="Contact number the frontend will message when an alert-ready event is received.",
+        description="Digits-only WhatsApp number the frontend will message when an alert-ready event is received (e.g. 60123456789).",
     )
+
+    @field_validator("whatsapp_number", mode="before")
+    @classmethod
+    def _normalize_whatsapp(cls, value: Optional[object]) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str):
+            digits = value.strip()
+            if not digits:
+                return None
+            if not digits.isdigit():
+                raise ValueError("whatsapp_number must contain digits only")
+            return int(digits)
+        raise TypeError("whatsapp_number must be a digits-only string or integer")
 
 
 class SimulatorOut(SimulatorCreate):
