@@ -1,0 +1,27 @@
+from functools import lru_cache
+from typing import Optional
+
+from pydantic import BaseSettings, Field
+
+
+class Settings(BaseSettings):
+    database_url: str = Field(
+        default="sqlite:///./eternalgy.db",
+        description="SQLAlchemy database URL. Defaults to local SQLite for development.",
+    )
+    backend_api_key: str = Field(default="dev-secret-key")
+    whatsapp_api_base: Optional[str] = Field(default=None)
+    whatsapp_api_token: Optional[str] = Field(default=None)
+    log_level: str = Field(default="info")
+    timezone: str = Field(default="Asia/Kuala_Lumpur")
+    sse_heartbeat_seconds: int = Field(default=15, ge=5)
+
+    class Config:
+        env_prefix = ""
+        case_sensitive = False
+        env_file = ".env"
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()

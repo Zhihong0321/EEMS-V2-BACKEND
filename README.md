@@ -146,6 +146,14 @@ create table if not exists alerts (
 
 ## 5) API Contracts (REST)
 
+### 5.0 API discovery when deployed
+
+The deployed service exposes the interactive Swagger UI at the root path
+(`/`). Visiting the base URL of the Railway deployment immediately loads the
+API documentation so the frontend team can explore every route without
+guessing the location. The OpenAPI schema remains available at `/openapi.json`
+for programmatic use.
+
 ### Auth
 
 All **write** calls require header:
@@ -200,6 +208,20 @@ All **write** calls require header:
   ]
 }
 ```
+
+**Simulator workflow**
+
+1. Retrieve (or create) the simulator via `POST /api/v1/simulators` and store
+   the returned `id`.
+2. Send readings with the simulator's UUID and a batch of ticks using the
+   `POST /api/v1/readings:ingest` endpoint shown above. Each tick represents a
+   single instantaneous power sample and its duration in seconds.
+3. (Optional) Supply `device_ts` per tick if the simulator keeps its own
+   timestamp. The backend will default to the receive time for any missing
+   values.
+4. Repeat this request for every batch of readings. The backend persists the
+   samples, updates the 30-minute block aggregates, emits SSE updates, and
+   checks the 80% alert threshold automatically.
 
 **Response 200**
 
