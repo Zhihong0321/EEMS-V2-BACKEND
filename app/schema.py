@@ -15,7 +15,7 @@ from pydantic import (
 )
 
 
-class SimulatorCreate(BaseModel):
+class SimulatorBase(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str = Field(
@@ -64,13 +64,19 @@ class SimulatorCreate(BaseModel):
         raise TypeError("whatsapp_number must be a digits-only string or integer")
 
 
-class SimulatorOut(SimulatorCreate):
+class SimulatorCreate(SimulatorBase):
+    pass
+
+
+class SimulatorOut(BaseModel):
     id: UUID
+    name: str
+    target_kwh: float
+    whatsapp_number: Optional[int]
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SimulatorResponse(BaseModel):
