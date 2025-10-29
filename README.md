@@ -2,6 +2,8 @@
 
 The Eternalgy EMS backend ingests simulated energy readings, aggregates them into fixed 30-minute blocks, and streams updates for the dashboard. When a block crosses **80%** of its target the backend marks it as alert-ready and emits an SSE event—the frontend decides what to do next (WhatsApp, email, etc.). Simulator profiles keep the WhatsApp number so the UI knows the right destination once the alert-ready arrives.
 
+> **Heads up:** hitting the deployed base URL (e.g. `https://your-app.up.railway.app/`) now opens a live API guide with the exact payloads shown below. The Swagger UI is still available at `/docs` for interactive testing.
+
 ---
 
 ## ⚡ Quickstart – create your first simulator (no more 422s)
