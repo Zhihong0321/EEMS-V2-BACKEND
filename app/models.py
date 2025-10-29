@@ -29,6 +29,7 @@ class Simulator(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String, nullable=False)
     target_kwh: Mapped[float] = mapped_column(Numeric(12, 4), nullable=False)
+    whatsapp_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

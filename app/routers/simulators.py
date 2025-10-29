@@ -18,12 +18,14 @@ def create_or_update_simulator(payload: SimulatorCreate, db: Session = Depends(g
 
     if existing:
         existing.target_kwh = payload.target_kwh
+        existing.whatsapp_number = payload.whatsapp_number
         db.flush()
         simulator = existing
     else:
         simulator = Simulator(
             name=payload.name,
             target_kwh=payload.target_kwh,
+            whatsapp_number=payload.whatsapp_number,
         )
         db.add(simulator)
         db.flush()

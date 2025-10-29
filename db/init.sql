@@ -5,6 +5,7 @@ create table if not exists simulators (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   target_kwh numeric(12,4) not null check (target_kwh >= 0),
+  whatsapp_number text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

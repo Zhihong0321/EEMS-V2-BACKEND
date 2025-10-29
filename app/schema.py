@@ -17,6 +17,12 @@ class SimulatorCreate(BaseModel):
         validation_alias=AliasChoices("target_kwh", "targetKwh"),
         description="Target energy consumption in kWh for the 30-minute window.",
     )
+    whatsapp_number: Optional[str] = Field(
+        default=None,
+        example="+60123456789",
+        validation_alias=AliasChoices("whatsapp_number", "whatsappNumber"),
+        description="Contact number the frontend will message when an alert-ready event is received.",
+    )
 
 
 class SimulatorOut(SimulatorCreate):

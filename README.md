@@ -15,7 +15,7 @@ Got it. Here’s a tight, Codex-optimized backend spec you can drop straight int
 ## 0) Purpose (What & Why)
 
 **What:**
-A minimal backend that ingests simulated energy readings, aggregates them into fixed 30-minute blocks (starting 00:00 daily, KL time), exposes read APIs for the dashboard, and emits live updates (SSE). When the current block reaches **≥80%** of the target kWh the backend marks the block as "alert-ready" and streams that fact so the frontend can decide how to notify users.
+A minimal backend that ingests simulated energy readings, aggregates them into fixed 30-minute blocks (starting 00:00 daily, KL time), exposes read APIs for the dashboard, and emits live updates (SSE). When the current block reaches **≥80%** of the target kWh the backend marks the block as "alert-ready" and streams that fact so the frontend can decide how to notify users. Simulator profiles also persist the WhatsApp contact number so the UI knows which destination to use once it receives the alert-ready signal.
 
 **Why:**
 
@@ -83,7 +83,7 @@ Optional env vars:
 
 ## 4) Database Schema (SQL)
 
-> Save as `db/init.sql`. Run once against `DATABASE_URL`.
+Save as `db/init.sql` and run once against `DATABASE_URL`.
 
 ```sql
 create extension if not exists pgcrypto; -- for gen_random_uuid()
@@ -146,21 +146,17 @@ All **write** calls require header:
 
 `POST /api/v1/simulators`
 
-**Body**
+**Request body**
 
-```json
-{
-  "name": "Factory A",
-  "target_kwh": 120.0
-}
-```
+| column name       | type of data | example          |
+| ----------------- | ------------ | ---------------- |
+| `name`            | string       | `"Factory A"`    |
+| `target_kwh`      | number       | `120.0`          |
+| `whatsapp_number` | string/null  | `"+60123456789"` |
 
-> Tip: The backend accepts both `target_kwh` and `targetKwh` in the request body
-> so frontend code written in camelCase works without any extra mapping. A 422
-> response usually means the JSON payload is missing one of the required
-> properties or the value is not a positive number.
+All fields also accept camelCase equivalents (`targetKwh`, `whatsappNumber`). A `422` error means a field is missing or invalid.
 
-**cURL example**
+**Example cURL**
 
 ```bash
 curl -X POST "$BASE_URL/api/v1/simulators" \
@@ -168,17 +164,28 @@ curl -X POST "$BASE_URL/api/v1/simulators" \
   -H "x-api-key: $BACKEND_API_KEY" \
   -d '{
     "name": "Factory A",
-    "targetKwh": 120
+    "targetKwh": 120,
+    "whatsappNumber": "+60123456789"
   }'
 ```
 
 **Response 200**
+
+| column name       | type of data | example                                  |
+| ----------------- | ------------ | ---------------------------------------- |
+| `id`              | UUID string  | `"c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123"` |
+| `name`            | string       | `"Factory A"`                            |
+| `target_kwh`      | number       | `120.0`                                  |
+| `whatsapp_number` | string/null  | `"+60123456789"`                         |
+| `created_at`      | timestamp    | `"2025-10-29T06:00:00Z"`                 |
+| `updated_at`      | timestamp    | `"2025-10-29T06:00:00Z"`                 |
 
 ```json
 {
   "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
   "name": "Factory A",
   "target_kwh": 120.0,
+  "whatsapp_number": "+60123456789",
   "created_at": "2025-10-29T06:00:00Z",
   "updated_at": "2025-10-29T06:00:00Z"
 }
@@ -188,7 +195,7 @@ curl -X POST "$BASE_URL/api/v1/simulators" \
 
 `GET /api/v1/simulators`
 
-**Response 200** – array of simulators (fields as above).
+**Response 200** – array of simulators (fields as above, including `whatsapp_number`).
 
 ### 5.3 Ingest Readings (bulk)
 
@@ -207,9 +214,7 @@ curl -X POST "$BASE_URL/api/v1/simulators" \
 }
 ```
 
-> CamelCase input such as `simulatorId`, `powerKw`, or `sampleSeconds` is also
-> accepted. Stick with numeric values for the power/duration fields to avoid
-> FastAPI returning a 422 validation error.
+CamelCase input such as `simulatorId`, `powerKw`, or `sampleSeconds` is also accepted. Stick with numeric values for the power/duration fields to avoid FastAPI returning a 422 validation error.
 
 **Simulator workflow**
 
@@ -335,7 +340,7 @@ curl -X POST "$BASE_URL/api/v1/simulators" \
       }
       ```
 
-> Alert-ready emits **at most once per block per simulator**. The frontend decides how to notify users (WhatsApp, SMS, etc.).
+Alert-ready emits **at most once per block per simulator**. The frontend decides how to notify users (WhatsApp, SMS, etc.).
 
 ### 6.4 Idempotency (simple)
 
