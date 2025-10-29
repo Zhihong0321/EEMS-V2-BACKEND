@@ -4,6 +4,7 @@ import asyncio
 import json
 import sys
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -18,7 +19,12 @@ from app.logic.blocks import get_block_history
 from app.main import handle_unexpected_exception
 from app.models import Base, Simulator
 from app.routers.simulators import list_simulators
-from app.schema import BlockHistoryResponse, SimulatorListResponse
+from app.schema import (
+    BlockHistoryResponse,
+    SimulatorCreate,
+    SimulatorListResponse,
+    SimulatorOut,
+)
 
 
 @pytest.fixture
@@ -88,3 +94,29 @@ def test_internal_error_is_returned_as_json() -> None:
     assert response.status_code == 500
     assert response.headers["content-type"] == "application/json"
     assert json.loads(response.body.decode()) == {"detail": "Internal Server Error"}
+
+
+def test_simulator_create_normalizes_whatsapp_aliases() -> None:
+    payload = SimulatorCreate(
+        name="Factory B",
+        targetKwh=90,
+        whatsappNumber=" +60 12-345 6789 ",
+    )
+
+    assert payload.whatsapp_number == 60123456789
+
+
+def test_simulator_out_handles_legacy_string_numbers() -> None:
+    class LegacySimulator:
+        def __init__(self) -> None:
+            self.id = uuid.uuid4()
+            self.name = "Factory Legacy"
+            self.target_kwh = 150.0
+            self.whatsapp_number = "+60 12 345 6789"
+            now = datetime.now(timezone.utc)
+            self.created_at = now
+            self.updated_at = now
+
+    result = SimulatorOut.model_validate(LegacySimulator())
+
+    assert result.whatsapp_number == 60123456789

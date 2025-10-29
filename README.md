@@ -29,7 +29,7 @@ The Eternalgy EMS backend ingests simulated energy readings, aggregates them int
    - The JSON body **must** be valid JSON (double quotes, numbers without quotes).
    - `targetKwh` is a number (e.g., `120` or `120.0`).
    - Leave out `whatsappNumber` or set it to `null` if you do not want to store one yet.
-   - The WhatsApp number must contain digits only (no `+` sign, spaces, or hyphens).
+   - The backend strips spaces, dashes, and leading `+` from the WhatsApp number before storing it—only digits are persisted.
 
 3. **Expected 200 OK response**
 
