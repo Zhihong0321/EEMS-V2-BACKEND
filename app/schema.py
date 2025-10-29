@@ -73,6 +73,14 @@ class SimulatorOut(SimulatorCreate):
         from_attributes = True
 
 
+class SimulatorResponse(BaseModel):
+    data: SimulatorOut
+
+
+class SimulatorListResponse(BaseModel):
+    data: List[SimulatorOut]
+
+
 class TickIn(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -137,5 +145,5 @@ class BlockHistoryItem(BaseModel):
     percent_of_target: float
 
 
-class BlockHistoryOut(BaseModel):
-    items: List[BlockHistoryItem]
+class BlockHistoryResponse(BaseModel):
+    data: List[BlockHistoryItem]
