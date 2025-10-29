@@ -10,17 +10,32 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, conint, confloa
 class SimulatorCreate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    name: str = Field(..., example="Factory A")
+    name: str = Field(
+        ...,
+        example="Factory A",
+        validation_alias=AliasChoices("name", "simulator_name", "simulatorName"),
+        description="Human-friendly simulator label shown in the dashboard.",
+    )
     target_kwh: confloat(ge=0) = Field(
         ...,
         example=120.0,
-        validation_alias=AliasChoices("target_kwh", "targetKwh"),
+        validation_alias=AliasChoices(
+            "target_kwh",
+            "targetKwh",
+            "target_kWh",
+            "targetKWhr",
+        ),
         description="Target energy consumption in kWh for the 30-minute window.",
     )
     whatsapp_number: Optional[str] = Field(
         default=None,
         example="+60123456789",
-        validation_alias=AliasChoices("whatsapp_number", "whatsappNumber"),
+        validation_alias=AliasChoices(
+            "whatsapp_number",
+            "whatsappNumber",
+            "whatsapp_no",
+            "whatsappNo",
+        ),
         description="Contact number the frontend will message when an alert-ready event is received.",
     )
 
