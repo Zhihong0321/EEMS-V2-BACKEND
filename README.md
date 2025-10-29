@@ -155,6 +155,23 @@ All **write** calls require header:
 }
 ```
 
+> Tip: The backend accepts both `target_kwh` and `targetKwh` in the request body
+> so frontend code written in camelCase works without any extra mapping. A 422
+> response usually means the JSON payload is missing one of the required
+> properties or the value is not a positive number.
+
+**cURL example**
+
+```bash
+curl -X POST "$BASE_URL/api/v1/simulators" \
+  -H "content-type: application/json" \
+  -H "x-api-key: $BACKEND_API_KEY" \
+  -d '{
+    "name": "Factory A",
+    "targetKwh": 120
+  }'
+```
+
 **Response 200**
 
 ```json
@@ -189,6 +206,10 @@ All **write** calls require header:
   ]
 }
 ```
+
+> CamelCase input such as `simulatorId`, `powerKw`, or `sampleSeconds` is also
+> accepted. Stick with numeric values for the power/duration fields to avoid
+> FastAPI returning a 422 validation error.
 
 **Simulator workflow**
 

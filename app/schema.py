@@ -4,12 +4,19 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, conint, confloat
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, conint, confloat
 
 
 class SimulatorCreate(BaseModel):
-    name: str
-    target_kwh: confloat(ge=0)
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(..., example="Factory A")
+    target_kwh: confloat(ge=0) = Field(
+        ...,
+        example=120.0,
+        validation_alias=AliasChoices("target_kwh", "targetKwh"),
+        description="Target energy consumption in kWh for the 30-minute window.",
+    )
 
 
 class SimulatorOut(SimulatorCreate):
@@ -22,14 +29,37 @@ class SimulatorOut(SimulatorCreate):
 
 
 class TickIn(BaseModel):
-    power_kw: confloat(ge=0)
-    sample_seconds: conint(gt=0)
-    device_ts: Optional[datetime] = None
+    model_config = ConfigDict(populate_by_name=True)
+
+    power_kw: confloat(ge=0) = Field(
+        ...,
+        example=350.5,
+        validation_alias=AliasChoices("power_kw", "powerKw"),
+        description="Instantaneous power level in kW for this tick.",
+    )
+    sample_seconds: conint(gt=0) = Field(
+        ...,
+        example=15,
+        validation_alias=AliasChoices("sample_seconds", "sampleSeconds"),
+        description="Duration in seconds that the power reading applies to.",
+    )
+    device_ts: Optional[datetime] = Field(
+        default=None,
+        example="2024-05-01T08:00:15Z",
+        validation_alias=AliasChoices("device_ts", "deviceTs"),
+        description="Optional timestamp captured by the simulator.",
+    )
 
 
 class IngestIn(BaseModel):
-    simulator_id: UUID
-    mode: Optional[str] = Field(default=None, pattern=r"^(auto|manual)?$")
+    model_config = ConfigDict(populate_by_name=True)
+
+    simulator_id: UUID = Field(
+        ...,
+        validation_alias=AliasChoices("simulator_id", "simulatorId"),
+        example="c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+    )
+    mode: Optional[str] = Field(default=None, pattern=r"^(auto|manual)?$", example="auto")
     ticks: List[TickIn]
 
 
