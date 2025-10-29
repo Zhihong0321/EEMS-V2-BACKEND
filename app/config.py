@@ -1,7 +1,8 @@
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,10 +17,11 @@ class Settings(BaseSettings):
     timezone: str = Field(default="Asia/Kuala_Lumpur")
     sse_heartbeat_seconds: int = Field(default=15, ge=5)
 
-    class Config:
-        env_prefix = ""
-        case_sensitive = False
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        case_sensitive=False,
+        env_file=".env",
+    )
 
 
 @lru_cache()
