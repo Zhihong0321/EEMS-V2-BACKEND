@@ -29,7 +29,7 @@ The Eternalgy EMS backend ingests simulated energy readings, aggregates them int
    - The JSON body **must** be valid JSON (double quotes, numbers without quotes).
    - `targetKwh` is a number (e.g., `120` or `120.0`).
    - Leave out `whatsappNumber` or set it to `null` if you do not want to store one yet.
-   - The WhatsApp number must contain digits only (no `+` sign, spaces, or hyphens).
+   - The backend strips spaces, dashes, and leading `+` from the WhatsApp number before storing it—only digits are persisted.
 
 3. **Expected 200 OK response**
 
@@ -76,10 +76,10 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 
 #### `POST /api/v1/simulators`
 - Request body: see table above.
-- Returns the stored simulator (fields: `id`, `name`, `target_kwh`, `whatsapp_number`, `created_at`, `updated_at`).
+- Returns `{ "data": { ...simulator fields... } }` where the simulator fields include `id`, `name`, `target_kwh`, `whatsapp_number`, `created_at`, and `updated_at`.
 
 #### `GET /api/v1/simulators`
-- Response body: array of simulator objects with the same fields as above.
+- Response body: `{ "data": [ ...simulators... ] }` (an empty array when no simulators exist).
 
 ### Readings ingestion
 
@@ -119,14 +119,16 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 
 #### `GET /api/v1/blocks/history?simulator_id=<UUID>&limit=10`
 ```json
-[
-  {
-    "block_start_local": "2024-05-02T13:30:00+08:00",
-    "target_kwh": 120.0,
-    "accumulated_kwh": 101.2,
-    "percent_of_target": 84.33
-  }
-]
+{
+  "data": [
+    {
+      "block_start_local": "2024-05-02T13:30:00+08:00",
+      "target_kwh": 120.0,
+      "accumulated_kwh": 101.2,
+      "percent_of_target": 84.33
+    }
+  ]
+}
 ```
 
 ### Server-Sent Events

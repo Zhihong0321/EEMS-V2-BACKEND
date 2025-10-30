@@ -11,7 +11,12 @@ from zoneinfo import ZoneInfo
 
 from ..config import get_settings
 from ..models import Block30m, Reading
-from ..schema import BlockHistoryItem, BlockHistoryOut, ChartBins, LatestBlockOut
+from ..schema import (
+    BlockHistoryItem,
+    BlockHistoryResponse,
+    ChartBins,
+    LatestBlockOut,
+)
 from .ingest import _ensure_aware
 
 
@@ -88,7 +93,9 @@ def get_latest_block(session: Session, simulator_id: UUID) -> LatestBlockOut:
     )
 
 
-def get_block_history(session: Session, simulator_id: UUID, limit: int = 10) -> BlockHistoryOut:
+def get_block_history(
+    session: Session, simulator_id: UUID, limit: int = 10
+) -> BlockHistoryResponse:
     blocks = session.scalars(
         select(Block30m)
         .where(Block30m.simulator_id == str(simulator_id))
@@ -108,4 +115,4 @@ def get_block_history(session: Session, simulator_id: UUID, limit: int = 10) -> 
             )
         )
 
-    return BlockHistoryOut(items=items)
+    return BlockHistoryResponse(data=items)

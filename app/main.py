@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import get_settings
 from .db import engine
@@ -14,6 +16,7 @@ from .routers import blocks, readings, simulators, stream
 settings = get_settings()
 
 logging.basicConfig(level=settings.log_level.upper())
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Eternalgy EMS Backend", version="0.1.0")
 
@@ -29,6 +32,50 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_request_validation(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    logger.info(
+        "Validation error for %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.errors(),
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
+
+@app.exception_handler(StarletteHTTPException)
+async def handle_http_exception(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    content = {"detail": exc.detail}
+    if exc.status_code >= 500:
+        logger.exception(
+            "HTTP exception for %s %s: %s",
+            request.method,
+            request.url.path,
+            exc.detail,
+        )
+    if exc.headers:
+        return JSONResponse(
+            status_code=exc.status_code, content=content, headers=exc.headers
+        )
+    return JSONResponse(status_code=exc.status_code, content=content)
+
+
+@app.exception_handler(Exception)
+async def handle_unexpected_exception(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    logger.exception(
+        "Unhandled error during %s %s",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 
 DOCS_HTML = """
@@ -217,21 +264,7 @@ DOCS_HTML = """
   }'</code></pre>
         <p><strong>Sample response:</strong></p>
         <pre><code>{
-  "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
-  "name": "Factory A",
-  "target_kwh": 120.0,
-  "whatsapp_number": 60123456789,
-  "created_at": "2024-05-02T06:00:00Z",
-  "updated_at": "2024-05-02T06:00:00Z"
-}</code></pre>
-      </div>
-
-      <div class=\"card\">
-        <h3>GET /api/v1/simulators</h3>
-        <p>Return all simulators in creation order.</p>
-        <p><strong>Sample response:</strong></p>
-        <pre><code>[
-  {
+  "data": {
     "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
     "name": "Factory A",
     "target_kwh": 120.0,
@@ -239,7 +272,25 @@ DOCS_HTML = """
     "created_at": "2024-05-02T06:00:00Z",
     "updated_at": "2024-05-02T06:00:00Z"
   }
-]</code></pre>
+}</code></pre>
+      </div>
+
+      <div class=\"card\">
+        <h3>GET /api/v1/simulators</h3>
+        <p>Return all simulators in creation order.</p>
+        <p><strong>Sample response:</strong></p>
+        <pre><code>{
+  "data": [
+    {
+      "id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+      "name": "Factory A",
+      "target_kwh": 120.0,
+      "whatsapp_number": 60123456789,
+      "created_at": "2024-05-02T06:00:00Z",
+      "updated_at": "2024-05-02T06:00:00Z"
+    }
+  ]
+}</code></pre>
       </div>
     </section>
 
@@ -293,20 +344,22 @@ DOCS_HTML = """
       <div class=\"card\">
         <h3>GET /api/v1/blocks/history</h3>
         <p>Query with <code>?simulator_id=&lt;UUID&gt;&amp;limit=10</code> to fetch past block summaries.</p>
-        <pre><code>[
-  {
-    "block_start_local": "2024-05-02T13:30:00+08:00",
-    "target_kwh": 120.0,
-    "accumulated_kwh": 101.2,
-    "percent_of_target": 84.33
-  },
-  {
-    "block_start_local": "2024-05-02T13:00:00+08:00",
-    "target_kwh": 120.0,
-    "accumulated_kwh": 92.4,
-    "percent_of_target": 77.0
-  }
-]</code></pre>
+        <pre><code>{
+  "data": [
+    {
+      "block_start_local": "2024-05-02T13:30:00+08:00",
+      "target_kwh": 120.0,
+      "accumulated_kwh": 101.2,
+      "percent_of_target": 84.33
+    },
+    {
+      "block_start_local": "2024-05-02T13:00:00+08:00",
+      "target_kwh": 120.0,
+      "accumulated_kwh": 92.4,
+      "percent_of_target": 77.0
+    }
+  ]
+}</code></pre>
       </div>
     </section>
 

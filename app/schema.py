@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
@@ -15,7 +16,42 @@ from pydantic import (
 )
 
 
-class SimulatorCreate(BaseModel):
+def _coerce_whatsapp_number(value: Optional[object]) -> Optional[int]:
+    """Normalize WhatsApp numbers while tolerating legacy formatting."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, bool):  # bool is a subclass of int but we do not want True/False
+        raise TypeError("whatsapp_number must be a digits-only string or integer")
+
+    if isinstance(value, Decimal):
+        value = int(value)
+
+    if isinstance(value, int):
+        if value <= 0:
+            raise ValueError("whatsapp_number must be a positive integer")
+        return value
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+
+        digits_only = "".join(ch for ch in stripped if ch.isdigit())
+
+        if not digits_only:
+            raise ValueError("whatsapp_number must contain at least one digit")
+
+        number = int(digits_only)
+        if number <= 0:
+            raise ValueError("whatsapp_number must be a positive integer")
+        return number
+
+    raise TypeError("whatsapp_number must be a digits-only string or integer")
+
+
+class SimulatorBase(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     name: str = Field(
@@ -50,27 +86,35 @@ class SimulatorCreate(BaseModel):
     @field_validator("whatsapp_number", mode="before")
     @classmethod
     def _normalize_whatsapp(cls, value: Optional[object]) -> Optional[int]:
-        if value is None:
-            return None
-        if isinstance(value, int):
-            return value
-        if isinstance(value, str):
-            digits = value.strip()
-            if not digits:
-                return None
-            if not digits.isdigit():
-                raise ValueError("whatsapp_number must contain digits only")
-            return int(digits)
-        raise TypeError("whatsapp_number must be a digits-only string or integer")
+        return _coerce_whatsapp_number(value)
 
 
-class SimulatorOut(SimulatorCreate):
+class SimulatorCreate(SimulatorBase):
+    pass
+
+
+class SimulatorOut(BaseModel):
     id: UUID
+    name: str
+    target_kwh: float
+    whatsapp_number: Optional[int]
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("whatsapp_number", mode="before")
+    @classmethod
+    def _normalize_whatsapp(cls, value: Optional[object]) -> Optional[int]:
+        return _coerce_whatsapp_number(value)
+
+
+class SimulatorResponse(BaseModel):
+    data: SimulatorOut
+
+
+class SimulatorListResponse(BaseModel):
+    data: List[SimulatorOut]
 
 
 class TickIn(BaseModel):
@@ -137,5 +181,5 @@ class BlockHistoryItem(BaseModel):
     percent_of_target: float
 
 
-class BlockHistoryOut(BaseModel):
-    items: List[BlockHistoryItem]
+class BlockHistoryResponse(BaseModel):
+    data: List[BlockHistoryItem]
