@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from .config import get_settings
 from .db import engine
 from .models import Base
+from .migrations import apply_startup_migrations
 from .routers import blocks, readings, simulators, stream
 
 settings = get_settings()
@@ -29,6 +30,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+    apply_startup_migrations(engine)
 
 
 DOCS_HTML = """
