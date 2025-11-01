@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -43,3 +44,19 @@ def create_or_update_simulator(payload: SimulatorCreate, db: Session = Depends(g
 def list_simulators(db: Session = Depends(get_db)) -> List[SimulatorOut]:
     simulators = db.scalars(select(Simulator).order_by(Simulator.created_at)).all()
     return [SimulatorOut.model_validate(sim) for sim in simulators]
+
+
+@router.delete(
+    "/{simulator_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
+def delete_simulator(simulator_id: UUID, db: Session = Depends(get_db)) -> None:
+    simulator = db.get(Simulator, str(simulator_id))
+    if simulator is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Simulator with id '{simulator_id}' not found.",
+        )
+
+    db.delete(simulator)

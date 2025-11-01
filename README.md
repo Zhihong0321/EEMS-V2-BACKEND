@@ -66,6 +66,7 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 | --------------------------------- | --------------------------------------------- | ----- |
 | `POST /api/v1/simulators`         | Create or update a simulator profile          | ✅    |
 | `GET /api/v1/simulators`          | List simulator profiles                       | ❌    |
+| `DELETE /api/v1/simulators/{id}`  | Delete a simulator profile and its readings   | ✅    |
 | `POST /api/v1/readings:ingest`    | Bulk-ingest power readings                    | ✅    |
 | `GET /api/v1/blocks/latest`       | Latest 30-minute block for a simulator        | ❌    |
 | `GET /api/v1/blocks/history`      | Historical block summaries (limit param)      | ❌    |
@@ -80,6 +81,12 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 
 #### `GET /api/v1/simulators`
 - Response body: array of simulator objects with the same fields as above.
+
+#### `DELETE /api/v1/simulators/{simulator_id}`
+- Requires `x-api-key` header.
+- Deletes the simulator profile and cascades removal of its readings.
+- Returns **204 No Content** when successful.
+- Returns **404 Not Found** if the simulator ID does not exist.
 
 ### Readings ingestion
 
