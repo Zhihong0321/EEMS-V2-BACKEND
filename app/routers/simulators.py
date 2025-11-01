@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -50,6 +50,7 @@ def list_simulators(db: Session = Depends(get_db)) -> List[SimulatorOut]:
     "/{simulator_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
+    response_class=Response,
 )
 def delete_simulator(simulator_id: UUID, db: Session = Depends(get_db)) -> None:
     simulator = db.get(Simulator, str(simulator_id))
