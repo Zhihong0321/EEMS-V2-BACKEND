@@ -50,9 +50,10 @@ def list_simulators(db: Session = Depends(get_db)) -> List[SimulatorOut]:
     "/{simulator_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_api_key)],
-    response_class=Response,
 )
-def delete_simulator(simulator_id: UUID, db: Session = Depends(get_db)) -> None:
+def delete_simulator(
+    simulator_id: UUID, db: Session = Depends(get_db)
+) -> Response:
     simulator = db.get(Simulator, str(simulator_id))
     if simulator is None:
         raise HTTPException(
@@ -61,3 +62,6 @@ def delete_simulator(simulator_id: UUID, db: Session = Depends(get_db)) -> None:
         )
 
     db.delete(simulator)
+    db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
