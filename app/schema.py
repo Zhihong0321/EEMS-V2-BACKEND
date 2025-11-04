@@ -113,6 +113,25 @@ class IngestOut(BaseModel):
     sse_emitted: bool
 
 
+class ReadingsTruncateIn(BaseModel):
+    simulator_id: UUID = Field(
+        ...,
+        validation_alias=AliasChoices("simulator_id", "simulatorId"),
+        example="c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+    )
+    cutoff_ts: datetime = Field(
+        ...,
+        validation_alias=AliasChoices("cutoff_ts", "cutoffTs", "timestamp"),
+        example="2024-05-01T08:00:15Z",
+        description="Delete readings with timestamps later than this UTC timestamp.",
+    )
+
+
+class ReadingsTruncateOut(BaseModel):
+    deleted: int = Field(..., description="Number of readings removed.")
+    success: bool = Field(default=True, description="Indicates the delete operation succeeded.")
+
+
 class ChartBins(BaseModel):
     bin_seconds: int
     points: List[float]

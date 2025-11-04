@@ -269,6 +269,23 @@ DOCS_HTML = """
 }</code></pre>
         <p><strong>Alias tips:</strong> Accepts <code>simulatorId</code>, <code>powerKw</code>, <code>sampleSeconds</code>, and <code>deviceTs</code> too.</p>
       </div>
+      <div class=\"card\">
+        <h3>POST /api/v1/readings:truncate</h3>
+        <p>Remove readings for a simulator that occur after a cutoff timestamp (UTC). Useful when a simulator replays stale data.</p>
+        <pre><code>curl -X POST "$BASE_URL/api/v1/readings:truncate" \<br />
+  -H "content-type: application/json" \<br />
+  -H "x-api-key: $BACKEND_API_KEY" \<br />
+  -d '{
+    "simulator_id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+    "cutoff_ts": "2024-05-02T07:45:00Z"
+  }'</code></pre>
+        <p><strong>Sample response:</strong></p>
+        <pre><code>{
+  "deleted": 42,
+  "success": true
+}</code></pre>
+        <p>A response of <code>deleted = 0</code> means nothing matched the cutoff. Any affected 30-minute blocks are recalculated automatically.</p>
+      </div>
     </section>
 
     <section>
