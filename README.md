@@ -68,6 +68,7 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 | `GET /api/v1/simulators`          | List simulator profiles                       | ❌    |
 | `DELETE /api/v1/simulators/{id}`  | Delete a simulator profile and its readings   | ✅    |
 | `POST /api/v1/readings:ingest`    | Bulk-ingest power readings                    | ✅    |
+| `POST /api/v1/readings:truncate`  | Delete readings after a cutoff timestamp      | ✅    |
 | `GET /api/v1/blocks/latest`       | Latest 30-minute block for a simulator        | ❌    |
 | `GET /api/v1/blocks/history`      | Historical block summaries (limit param)      | ❌    |
 | `GET /api/v1/stream/:simulatorId` | Live SSE stream (readings, block, alert-ready) | ❌    |
@@ -103,6 +104,17 @@ All write endpoints require `x-api-key: <BACKEND_API_KEY>`. Read-only endpoints 
 ```
 - Aliases accepted: `simulatorId`, `powerKw`, `sampleSeconds`, `deviceTs`.
 - Response: `{ "accepted": 2, "sse_emitted": true }`.
+
+#### `POST /api/v1/readings:truncate`
+```json
+{
+  "simulator_id": "c7d7c9ad-33ce-42a8-8f7d-3aaf1c6de123",
+  "cutoff_ts": "2024-05-02T07:45:00Z"
+}
+```
+- Requires `x-api-key` header.
+- Deletes all readings for the simulator with timestamps later than the provided UTC cutoff and recalculates any affected 30-minute blocks.
+- Response: `{ "deleted": 42, "success": true }` (returns `0` when nothing was removed).
 
 ### Blocks
 
